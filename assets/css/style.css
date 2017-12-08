@@ -1,0 +1,33 @@
+/*  Main Header style */
+
+.jumbotron {
+    background-color: #d89191;
+    color: hsl(120, 29%, 92%);
+    /* background-image: url(../../assets/images/train-hack-FB.jpg);
+    background-repeat: no-repeat;
+    background-size: 100% 100%; */
+    -webkit-animation: mymove 5s infinite;
+    animation: mymove 5s infinite;
+}
+
+@-webkit-keyframes mymove {
+    50% {
+        background-color: blue;
+    }
+}
+
+h4 {
+    text-align: center;
+}
+
+h4,
+.panel-title {
+    color: #ffffff;
+}
+
+h2,
+#currentTime {
+    text-align: center;
+    color: #ffffff;
+    font-size: 20px;
+}
