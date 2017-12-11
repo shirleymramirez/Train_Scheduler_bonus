@@ -9,33 +9,27 @@ $(document).ready(function() {
         messagingSenderId: "249730261069"
     };
     firebase.initializeApp(config);
-    //Run Clock
+
+    //------------------ Current Time Update on HTML page --------------------
     setInterval(function() {
         $("#currentTime").text(moment().format("MMMM Do YYYY, h:mm:ss a"));
     }, 1000);
 
+    //------------------ Variable Declaration ----------------------------------
     var database = firebase.database();
-    console.log("Database: " + database);
 
     var trainName = "";
     var destination = "";
     var firstTrainTime = "";
     var frequency = "";
 
-    // capture submit button click
-    $("#submitInfo").on("click", function() {
-        event.preventDefault();
-
+    //------------------ capture submit button click ------------------------------
+    $("#inputForm").on("submit", function() {
         // storing and retrieving the most recent user.
         trainName = $("#trainNameInput").val().trim();
         destination = $("#destinationInput").val().trim();
         firstTrainTime = $("#firstTrainTimeInput").val().trim();
         frequency = $("#frequencyInput").val().trim();
-
-        console.log("TrainName: " + trainName);
-        console.log("Destination: " + destination);
-        console.log("FirstTrainTime: " + firstTrainTime);
-        console.log("Frequency: " + frequency);
 
         // store initial data to Firebase database.
         database.ref().push({
@@ -49,32 +43,52 @@ $(document).ready(function() {
         return false;
     });
 
-    // firebase watcher on value event
-    database.ref().on(
-        "child_added",
-        function(childSnapshot) {
+    //------------------ funtion for computation of next arrival and minutes away  ---------------
+    function getNextArrivalAndMinutesAway(item) {
+
+        // get current time in military format
+        var firstTimeConverted = moment(item.firstTrainTime, "HH:mm");
+
+        // get the difference of current time from the time converted in military time
+        var diffTime = moment().diff(moment(firstTimeConverted));
+
+        // get diff time in minutes
+        var diffTimeInMinutes = moment().diff(moment(firstTimeConverted), "minutes");
+
+        // get the time Remainder from diff in times and frequency
+        var timeRemainder = diffTimeInMinutes % item.frequency;
+
+        // calculate minutes away based from frequency and time remainder
+        var minutesAway = item.frequency - timeRemainder;
+
+        // check next arrival and nextTrain data
+        var nextArrival;
+        if (diffTimeInMinutes > 0) {
+            var nextTrain = moment(firstTimeConverted + diffTime).add(minutesAway, "minutes");
+            nextArrival = moment(nextTrain).format("HH:mm A");
+        } else {
+            minutesAway = Math.abs(diffTimeInMinutes);
+            nextArrival = moment(firstTimeConverted).format("HH:mm A");
+        }
+
+        return {
+            nextArrival,
+            minutesAway,
+        };
+    }
+
+    //----------------- firebase watcher on value event-----------------------------------------
+    database.ref().on("child_added", function(childSnapshot) {
             //log everything that's coming out of snapshot
-            var trainName = childSnapshot.val().trainName;
-            var destination = childSnapshot.val().destination;
-            var firstTrainTime = childSnapshot.val().firstTrainTime;
-            var frequency = parseInt(childSnapshot.val().frequency);
-
-            var firstTimeConverted = moment(firstTrainTime, "HH:mm").subtract(1, "years");
-            var diffTime = moment().diff(moment(firstTimeConverted), "minutes");
-            var timeRemainder = diffTime % frequency;
-            var minutesAway = frequency - timeRemainder;
-            var nextTrain = moment().add(minutesAway, "minutes");
-            var nextArrival = moment(nextTrain).format("HH:mm A");
-
-            setInterval(timerUpdate, 60000);
-
+            var item = childSnapshot.val();
+            var computedValues = getNextArrivalAndMinutesAway(item);
             // Change HTML Elements to reflect changes on Train Schedule Data Table Section
             $("#trainTable").append(
-                "<tr><td id='trainNameDisplay'>" + trainName +
-                "</td><td id='destinationDisplay'>" + destination +
-                "</td><td id='frequencyminDisplay'>" + "Every " + frequency + " min " +
-                "</td><td id='nextArrivalDisplay'>" + nextArrival +
-                "</td><td id='minutesAwayDisplay'>" + minutesAway + " minutes away" + "</td></tr>"
+                "<tr class=\"" + childSnapshot.key + "\"><td>" + item.trainName + "</td>" +
+                "<td>" + item.destination + "</td>" +
+                "<td>" + "Every " + item.frequency + " min " + "</td>" +
+                "<td id=\"nextArrivalDisplay\">" + computedValues.nextArrival + "</td>" +
+                "<td id=\"minutesAwayDisplay\">" + computedValues.minutesAway + " minutes away" + "</td></tr>"
             );
 
             // Handle the errors
@@ -83,21 +97,37 @@ $(document).ready(function() {
             console.log("Errors handled: " + errorObject.code);
         }
     );
+    //------ set interval function for updates of minutes to arrival and next train time ------------------
+    setInterval(function() {
 
-    function timerUpdate() {
+        // firebase watcher on value event
         database.ref().orderByValue().on("value", function(snapshot) {
+
+            // store snapshot data value in a new variable
             var data = snapshot.val();
-            var items = Object.values(data);
-            items.forEach(item => {
-                var firstTrainTime = item.firstTrainTime;
-                var frequency = parseInt(item.frequency);
 
+            // data checks
+            if (data) {
+                var keys = Object.keys(data);
 
-                console.log("trainName: " + item.trainName);
-                console.log("destination: " + item.destination);
-                console.log("firstTrainTime: " + item.firstTrainTime);
-                console.log("frequency: " + item.frequency);
-            });
+                //for each data keys event 
+                keys.forEach(key => {
+                    var item = data[key];
+
+                    // store data item from getNextArrivalandMinutesAway function
+                    var computedValues = getNextArrivalAndMinutesAway(item);
+
+                    // parent-child selector for nextArrivalDisplay
+                    var arrivalSelector = $("tr." + key + " > #nextArrivalDisplay");
+                    $(arrivalSelector).text(computedValues.nextArrival);
+
+                    // parent-child selector for minutesAwayDisplay
+                    var minutesSelector = "tr." + key + " > #minutesAwayDisplay";
+                    $(minutesSelector).text(computedValues.minutesAway + " minutes away");
+
+                });
+            }
         });
-    }
+    }, 60000);
+    // ---------------------------------------------------------------------------------------------------
 });

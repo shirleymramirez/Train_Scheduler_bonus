@@ -1,11 +1,15 @@
+body {
+    background-image: url(../../assets/images/images.jpeg);
+    background-repeat: repeat;
+    background-size: 100%;
+}
+
+
 /*  Main Header style */
 
 .jumbotron {
     background-color: #d89191;
     color: hsl(120, 29%, 92%);
-    /* background-image: url(../../assets/images/train-hack-FB.jpg);
-    background-repeat: no-repeat;
-    background-size: 100% 100%; */
     -webkit-animation: mymove 5s infinite;
     animation: mymove 5s infinite;
 }
